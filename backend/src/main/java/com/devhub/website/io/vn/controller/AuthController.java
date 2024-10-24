@@ -1,51 +1,39 @@
 package com.devhub.website.io.vn.controller;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import com.devhub.website.io.vn.entity.User;
+import com.devhub.website.io.vn.repository.UserRepository;
+import com.devhub.website.io.vn.jwt.JwtProvider;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.*;
 
-import com.devhub.website.io.vn.dto.LoginRequest;
-import com.devhub.website.io.vn.dto.RegisterRequest;
-import com.devhub.website.io.vn.service.AuthService;
-
-@Controller
-@RequestMapping("/auth")
+@RestController
+@RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtProvider jwtProvider;
+    private final UserRepository userRepository;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
+    public AuthController(AuthenticationManager authenticationManager, JwtProvider jwtProvider, UserRepository userRepository) {
+        this.authenticationManager = authenticationManager;
+        this.jwtProvider = jwtProvider;
+        this.userRepository = userRepository;
     }
 
-    // Hiển thị form đăng ký
-    @GetMapping("/register")
-    public String showRegisterPage() {
-        return "register"; // Trả về file templates/register.html
-    }
-
-    // Xử lý đăng ký
-    @PostMapping("/register")
-    public String register(@RequestBody RegisterRequest registerRequest, Model model) {
-        authService.register(registerRequest);
-        model.addAttribute("message", "User registered successfully");
-        return "register"; // Trả về lại trang register.html với message
-    }
-
-    // Hiển thị form đăng nhập
-    @GetMapping("/login")
-    public String showLoginPage() {
-        return "login"; // Trả về file templates/login.html
-    }
-
-    // Xử lý đăng nhập
     @PostMapping("/login")
-    public String login(@RequestBody LoginRequest loginRequest, Model model) {
-        String token = authService.login(loginRequest);
-        model.addAttribute("token", token); // Thêm token vào model
-        return "dashboard"; // Trả về file templates/dashboard.html (nếu có) sau khi đăng nhập
+    public String login(@RequestParam String username, @RequestParam String password) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password));
+        return jwtProvider.createToken(authentication);
+    }
+
+    @PostMapping("/register")
+    public String register(@RequestBody User user) {
+        user.setPassword(new BCryptPasswordEncoder().encode(user.getPassword()));
+        userRepository.save(user);
+        return "User registered successfully";
     }
 }
